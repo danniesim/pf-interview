@@ -1,0 +1,31 @@
+# Create index with required mappings
+
+PUT pf_idx
+{
+  "mappings": {
+    "courses_w_geo": {
+      "properties": {
+        "TITLE": {
+          "type": "text",
+          "fields": {
+            "raw": {
+              "type":  "keyword"
+            }
+          }
+        },
+        "GEOGRAPHY": {
+          "type": "text",
+          "fields": {
+            "raw": {
+              "type":  "keyword"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+# Delete index
+
+DELETE pf_idx
