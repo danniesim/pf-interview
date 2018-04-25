@@ -2,8 +2,11 @@ import pickle
 import string
 
 from nltk.corpus import stopwords
+from nltk.corpus import wordnet as wn
+
 from tqdm import tqdm, trange
 import logging
+
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] (%(threadName)-10s) %(message)s')
 
@@ -140,38 +143,60 @@ def upload_to_elastics(course_w_geo):
     import re
 
     industries = pd.read_csv('data/industries.csv', header=0, index_col=0)
+    ind_tree = pickle.load(open("data/ind_tree.p", "rb"))
     industries_level_1 = industries.L1
     industries_level_1 = industries_level_1.drop_duplicates()
 
     es = Elasticsearch([{'host': 'localhost', 'port': 9200}])
 
     punct_trans = {ord(c): ' ' for c in string.punctuation}
-    remove_words = ['a', 'for', 'the']
+    course_remove_words = ['a', 'for', 'the']
+    industry_remove_words = ['a', 'for', 'the', 'and', 'nan']
 
     for idx, row in tqdm(course_w_geo.iterrows()):
         body = row.to_dict()
 
         course_keywords_str = body['TITLE'].translate(punct_trans)
-        course_keywords_arr = word_tokenize(course_keywords_str)
-        course_keywords_arr = [word for word in course_keywords_arr if word not in stopwords.words('english')]
-        course_keywords_arr = [i for i in course_keywords_arr if i.lower() not in remove_words]
+        course_tokens = word_tokenize(course_keywords_str)
+        course_tokens = [word for word in course_tokens if word not in stopwords.words('english')]
+        course_tokens = [i for i in course_tokens if i.lower() not in course_remove_words]
+
+        for course_term in course_tokens:
+            wn.synsets(course_term)
+            pass
 
         matched_industries = []
-        for ind_idx, ind_item in industries_level_1.iteritems():
-            ind_item_str = str(ind_item)
-            ind_item_str = ind_item_str.replace('And ', '')
-            ind_item_arr = re.split('; |, ', ind_item_str)
-            ind_item_arr = list(map(str.strip, ind_item_arr))
 
-            for ind_term in ind_item_arr:
-                for course_term in course_keywords_arr:
-                    if len(course_term) > 2 and course_term in ind_term:
+        for node_key in ind_tree:
+
+            def get_all_tokens(node):
+                tokens = [node['value']]
+                current_node = node
+
+                while current_node['parent'] is not None:
+                    current_node = ind_tree[current_node['parent']]
+                    tokens.append(current_node['value'])
+
+                return tokens
+
+            ind_tokens = get_all_tokens(ind_tree[node_key])
+
+            # def tokenize_industry(item):
+            #     ind_str = str(item)
+            #     ind_str = ind_str.replace('And ', '')
+            #     ind_str = ind_str.replace('and ', '')
+            #     ind_arr = re.split('; |, ', ind_str)
+            #     return list(map(str.strip, ind_arr))
+
+            for ind_term in ind_tokens:
+                for course_term in course_tokens:
+                    if len(course_term) > 3 and course_term in ind_term:
                         if ind_term not in matched_industries:
                             matched_industries.append(ind_term)
                         break
 
         if len(matched_industries) > 0:
-            print(course_keywords_arr, matched_industries)
+            print(course_tokens, matched_industries)
 
         body['INDUSTRY_MAP'] = matched_industries
 
