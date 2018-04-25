@@ -92,11 +92,13 @@ def generate_sentence_similarity():
     punct_trans = {ord(c): ' ' for c in string.punctuation}
     score_df = pd.DataFrame(columns=['course_title', 'industry', 'score'])
     score_cache = {}
+    # Iterate through courses
     for c_idx, c_row in tqdm(course_w_geo.iterrows()):
         course_str = c_row.TITLE.strip()
         course_str = course_str.translate(punct_trans)
         c_word_tokens = word_tokenize(course_str)
         score_cache[course_str] = {}
+        # Iterate through Industries
         for t_idx, t_row in industries.iterrows():
             for l in range(1):
                 score = 0
@@ -109,8 +111,10 @@ def generate_sentence_similarity():
                     t_word_tokens = word_tokenize(industry_str)
                     for t_tok in t_word_tokens:
                         for c_tok in c_word_tokens:
+                            # Find synonym sets for industry and course word tokens
                             t_ss = wn.synsets(t_tok)
                             c_ss = wn.synsets(c_tok)
+                            # Sum and average WUP path similarity for all found synonyms
                             for t_s in t_ss:
                                 for c_s in c_ss:
                                     t_score = t_s.wup_similarity(c_s)
