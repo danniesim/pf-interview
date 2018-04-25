@@ -1,5 +1,7 @@
 import pickle
+import string
 
+from nltk.corpus import stopwords
 from tqdm import tqdm, trange
 import logging
 
@@ -82,7 +84,7 @@ def generate_addresses(course_w_location):
     return addresses
 
 
-addresses = generate_addresses(course_w_location)
+# addresses = generate_addresses(course_w_location)
 
 #
 # Use addresses to assign GEOGRAPHY field to courses
@@ -126,18 +128,54 @@ def assign_geography(course_w_location, addresses):
     course_w_geo.to_csv('data/course_w_geo.csv', index_label='idx', header=True)
 
 
-assign_geography(course_w_location, addresses)
+# assign_geography(course_w_location, addresses)
 course_w_geo = pd.read_csv('data/course_w_geo.csv', header=0, index_col=0)
 course_w_geo = course_w_geo.drop_duplicates(subset=['UKPRN', 'KISCOURSEID'])
 course_w_geo = course_w_geo.reindex()
 
 
 def upload_to_elastics(course_w_geo):
+    from nltk.tokenize import word_tokenize
     from elasticsearch import Elasticsearch
+    import re
+
+    industries = pd.read_csv('data/industries.csv', header=0, index_col=0)
+    industries_level_1 = industries.L1
+    industries_level_1 = industries_level_1.drop_duplicates()
+
     es = Elasticsearch([{'host': 'localhost', 'port': 9200}])
 
+    punct_trans = {ord(c): ' ' for c in string.punctuation}
+    remove_words = ['a', 'for', 'the']
+
     for idx, row in tqdm(course_w_geo.iterrows()):
-        es.index(index='pf_idx', doc_type='courses_w_geo', id=idx, body=row.to_dict())
+        body = row.to_dict()
+
+        course_keywords_str = body['TITLE'].translate(punct_trans)
+        course_keywords_arr = word_tokenize(course_keywords_str)
+        course_keywords_arr = [word for word in course_keywords_arr if word not in stopwords.words('english')]
+        course_keywords_arr = [i for i in course_keywords_arr if i.lower() not in remove_words]
+
+        matched_industries = []
+        for ind_idx, ind_item in industries_level_1.iteritems():
+            ind_item_str = str(ind_item)
+            ind_item_str = ind_item_str.replace('And ', '')
+            ind_item_arr = re.split('; |, ', ind_item_str)
+            ind_item_arr = list(map(str.strip, ind_item_arr))
+
+            for ind_term in ind_item_arr:
+                for course_term in course_keywords_arr:
+                    if len(course_term) > 2 and course_term in ind_term:
+                        if ind_term not in matched_industries:
+                            matched_industries.append(ind_term)
+                        break
+
+        if len(matched_industries) > 0:
+            print(course_keywords_arr, matched_industries)
+
+        body['INDUSTRY_MAP'] = matched_industries
+
+        es.index(index='pf_idx', doc_type='courses_w_geo', id=idx, body=body)
 
 
 upload_to_elastics(course_w_geo)

@@ -20,6 +20,15 @@ PUT pf_idx
               "type":  "keyword"
             }
           }
+        },
+        "INDUSTRY_MAP": {
+          "type": "text",
+          "fields": {
+           "raw": {
+            "type": "keyword"
+           }
+          },
+         "analyzer": "standard"
         }
       }
     }

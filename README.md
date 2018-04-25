@@ -28,6 +28,7 @@ http.cors.allow-headers: "X-Requested-With, Content-Type, Content-Length, Author
   - Browser opens with web app
 
 ## Approach used for this exercise
+### Day 1 - Barely MVP Webapp
 - Explored Django as backend
   - Thinking of doing most data wrangling and queries in Pandas
 - Elasticsearch
@@ -48,4 +49,10 @@ http.cors.allow-headers: "X-Requested-With, Content-Type, Content-Length, Author
     - A number of links are outdated
 - Clean courses without location record
 - Clean duplicate courses
+
+### Day 2 - "Human-level?" Semantic Matching
+- Wordnet qualitative review
+- Types of semantic path similarities
+- Abbreviations?
+- "Except", "Non-"
  

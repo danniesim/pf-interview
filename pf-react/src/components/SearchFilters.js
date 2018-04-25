@@ -14,7 +14,7 @@ const SearchFilters = ({ visible }) => (
 		<div className="child m10">
 			<MultiList
 				componentId="industry"
-				dataField="TITLE.raw"
+				dataField="INDUSTRY_MAP.raw"
 				placeholder="Enter or Select Industry"
 				title="Industry"
 				filterLabel="Industry"
