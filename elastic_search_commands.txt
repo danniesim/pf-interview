@@ -24,9 +24,9 @@ PUT pf_idx
         "INDUSTRY_MAP": {
           "type": "text",
           "fields": {
-           "raw": {
-            "type": "keyword"
-           }
+            "raw": {
+              "type": "keyword"
+            }
           },
          "analyzer": "standard"
         }

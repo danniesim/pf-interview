@@ -140,18 +140,50 @@ course_w_geo = course_w_geo.reindex()
 def upload_to_elastics(course_w_geo):
     from nltk.tokenize import word_tokenize
     from elasticsearch import Elasticsearch
+    from gensim.models import Word2Vec
+    from gensim.models import KeyedVectors
     import re
+    import numpy as np
+    from scipy import spatial
+    import math
 
-    industries = pd.read_csv('data/industries.csv', header=0, index_col=0)
+    # industries = pd.read_csv('data/industries.csv', header=0, index_col=0)
     ind_tree = pickle.load(open("data/ind_tree.p", "rb"))
-    industries_level_1 = industries.L1
-    industries_level_1 = industries_level_1.drop_duplicates()
 
     es = Elasticsearch([{'host': 'localhost', 'port': 9200}])
 
     punct_trans = {ord(c): ' ' for c in string.punctuation}
     course_remove_words = ['a', 'for', 'the']
-    industry_remove_words = ['a', 'for', 'the', 'and', 'nan']
+    # industry_remove_words = ['a', 'for', 'the', 'and', 'nan']
+
+    model = KeyedVectors.load_word2vec_format('data/GoogleNews-vectors-negative300.bin', binary=True)
+    num_features = 300
+
+    # from nltk.corpus import state_union
+    # model = Word2Vec(state_union.sents())
+    # model.save('data/state_union_vectors.bin')
+
+    # model = Word2Vec.load('data/state_union_vectors.bin')
+    # num_features = 100
+
+    cutoff = 0.42
+
+    def get_avg_vec(tokens_to_vec):
+        ind_vec_sum = np.zeros((num_features,), dtype='float32')
+        ind_vec_num = 0
+        ind_vec_num_match = 0
+        for token in tokens_to_vec:
+            try:
+                ind_vec_sum = ind_vec_sum + model.wv[token]
+                ind_vec_num_match = ind_vec_num_match + 1
+            except KeyError as e:
+                pass
+                # logging.warning(e)
+            ind_vec_num = ind_vec_num + 1
+
+        return ind_vec_sum / ind_vec_num, ind_vec_num_match
+
+    sim_cache = {}
 
     for idx, row in tqdm(course_w_geo.iterrows()):
         body = row.to_dict()
@@ -161,11 +193,12 @@ def upload_to_elastics(course_w_geo):
         course_tokens = [word for word in course_tokens if word not in stopwords.words('english')]
         course_tokens = [i for i in course_tokens if i.lower() not in course_remove_words]
 
-        for course_term in course_tokens:
-            wn.synsets(course_term)
-            pass
+        course_vec_avg, course_vec_num_match = get_avg_vec(course_tokens)
 
         matched_industries = []
+
+        if course_keywords_str not in sim_cache:
+            sim_cache[course_keywords_str] = {}
 
         for node_key in ind_tree:
 
@@ -179,24 +212,40 @@ def upload_to_elastics(course_w_geo):
 
                 return tokens
 
-            ind_tokens = get_all_tokens(ind_tree[node_key])
+            ind_tree_tokens = get_all_tokens(ind_tree[node_key])
 
-            # def tokenize_industry(item):
-            #     ind_str = str(item)
-            #     ind_str = ind_str.replace('And ', '')
-            #     ind_str = ind_str.replace('and ', '')
-            #     ind_arr = re.split('; |, ', ind_str)
-            #     return list(map(str.strip, ind_arr))
+            def tokenize_industry(item):
+                ind_str = str(item)
+                ind_str = ind_str.replace('And ', '')
+                ind_str = ind_str.replace('and ', '')
+                ind_arr = re.split('; |, ', ind_str)
+                return list(map(str.strip, ind_arr))
 
-            for ind_term in ind_tokens:
-                for course_term in course_tokens:
-                    if len(course_term) > 3 and course_term in ind_term:
-                        if ind_term not in matched_industries:
-                            matched_industries.append(ind_term)
-                        break
+            for ind_tree_token in ind_tree_tokens:
+                if ind_tree_token not in sim_cache[course_keywords_str]:
+                    ind_tokens = tokenize_industry(ind_tree_token)
+                    ind_avg_vec, ind_num_match = get_avg_vec(ind_tokens)
+
+                    sim = 1 - spatial.distance.cosine(ind_avg_vec, course_vec_avg)
+                    sim_cache[course_keywords_str][ind_tree_token] = sim
+                else:
+                    sim = sim_cache[course_keywords_str][ind_tree_token]
+
+                logging.debug(f'{sim}: {ind_tree_token}: {course_tokens}')
+                if not math.isnan(sim) and sim > cutoff:
+                    if ind_tree_token not in matched_industries:
+                        matched_industries.append(ind_tree_token)
+
+            # Old string matching method
+            # for ind_term in ind_tokens:
+            #     for course_token in course_tokens:
+            #         if len(course_token) > 3 and course_token in ind_term:
+            #             if ind_term not in matched_industries:
+            #                 matched_industries.append(ind_term)
+            #             break
 
         if len(matched_industries) > 0:
-            print(course_tokens, matched_industries)
+            logging.info(f'{course_tokens}, {matched_industries}')
 
         body['INDUSTRY_MAP'] = matched_industries
 

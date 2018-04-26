@@ -11,7 +11,9 @@ import pickle
 import logging
 logging.basicConfig(level=logging.DEBUG, format='[%(levelname)s] (%(threadName)-10s) %(message)s')
 
-
+#
+# Attempts to analyze text to get named entity classification
+#
 # from nltk.corpus import state_union
 # from nltk.tokenize import PunktSentenceTokenizer
 #
@@ -36,7 +38,7 @@ logging.basicConfig(level=logging.DEBUG, format='[%(levelname)s] (%(threadName)-
 #
 # process_content()
 
-def generate_industries():
+def generate_industries_tree():
     industries_csv = pd.read_csv('data/trees_industry.csv', header=None, names=['L1', 'L2', 'L3', 'L4'])
 
     l1 = None
@@ -91,13 +93,17 @@ def generate_industries():
             industries.loc[industries.shape[0]+1] = [l1, l2, l3, l4]
             l4 = None
 
-    industries.to_csv('data/industries.csv', index_label='idx', header=True)
+    # industries.to_csv('data/industries.csv', index_label='idx', header=True)
     pickle.dump(ind_tree, open("data/ind_tree.p", "wb"))
 
-generate_industries()
+
+generate_industries_tree()
 
 
 def generate_sentence_similarity():
+    #
+    # Attempt to use word net synonyms to infer relevance, not effective hence superseded with word2vec
+    #
     industries = pd.read_csv('data/industries.csv', header=0, index_col=0)
     industries = industries.fillna('')
 
