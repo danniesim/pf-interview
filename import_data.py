@@ -8,7 +8,7 @@ from tqdm import tqdm, trange
 import logging
 
 
-logging.basicConfig(level=logging.INFO, format='[%(levelname)s] (%(threadName)-10s) %(message)s')
+logging.basicConfig(level=logging.WARNING, format='[%(levelname)s] (%(threadName)-10s) %(message)s')
 
 #
 # Experiment with XML loading
@@ -154,10 +154,36 @@ def upload_to_elastics(course_w_geo):
 
     punct_trans = {ord(c): ' ' for c in string.punctuation}
     course_remove_words = ['a', 'for', 'the']
-    # industry_remove_words = ['a', 'for', 'the', 'and', 'nan']
+    generalized_remove_words = ['', 'a', 'for', 'the', 'and', 'or', 'of', 'nec', 's', 'other']
+
+    def tokenize_subject_phrase(course_str):
+        word_tokens = word_tokenize(course_str)
+        words_wo_stop_words = [word for word in word_tokens if word not in stopwords.words('english')]
+        tokens = [i for i in words_wo_stop_words if i.lower() not in course_remove_words]
+        return tokens
+
+    def tokenize_industry_tree_item(item):
+        ind_str = str(item)
+        ind_str = ind_str.replace('And ', '')
+        ind_str = ind_str.replace('and ', '')
+        ind_arr = re.split('; |, ', ind_str)
+        return list(map(str.strip, ind_arr))
+
+    def tokenize_generalized(item):
+        item_str = str(item).lower()
+        item_str = item_str.split("except ", 1)[0]
+        item_str = item_str.split("exc. ", 1)[0]
+        item_str = item_str.split("other than ", 1)[0]
+        item_str = item_str.split("not ", 1)[0]
+        item_str = item_str.split("without ", 1)[0]
+        item_str = item_str.split("no ", 1)[0]
+        word_list = re.split('[^a-z]', item_str)
+        word_list = [word for word in word_list if word not in generalized_remove_words]
+        return word_list
 
     model = KeyedVectors.load_word2vec_format('data/GoogleNews-vectors-negative300.bin', binary=True)
     num_features = 300
+    cutoff = 0.42
 
     # from nltk.corpus import state_union
     # model = Word2Vec(state_union.sents())
@@ -165,8 +191,7 @@ def upload_to_elastics(course_w_geo):
 
     # model = Word2Vec.load('data/state_union_vectors.bin')
     # num_features = 100
-
-    cutoff = 0.42
+    # cutoff = 0.7
 
     def get_avg_vec(tokens_to_vec):
         ind_vec_sum = np.zeros((num_features,), dtype='float32')
@@ -184,72 +209,79 @@ def upload_to_elastics(course_w_geo):
         return ind_vec_sum / ind_vec_num, ind_vec_num_match
 
     sim_cache = {}
+    # sim_cache = pickle.load(open("data/sim_cache.p", "rb"))
 
     for idx, row in tqdm(course_w_geo.iterrows()):
         body = row.to_dict()
 
-        course_keywords_str = body['TITLE'].translate(punct_trans)
-        course_tokens = word_tokenize(course_keywords_str)
-        course_tokens = [word for word in course_tokens if word not in stopwords.words('english')]
-        course_tokens = [i for i in course_tokens if i.lower() not in course_remove_words]
+        course_keywords_str = body['TITLE']
+        # course_tokens = tokenize_subject_phrase(course_keywords_str)
+        course_tokens = tokenize_generalized(course_keywords_str)
 
         course_vec_avg, course_vec_num_match = get_avg_vec(course_tokens)
 
-        matched_industries = []
+        matched_industries = {}
 
         if course_keywords_str not in sim_cache:
             sim_cache[course_keywords_str] = {}
 
         for node_key in ind_tree:
 
-            def get_all_tokens(node):
-                tokens = [node['value']]
+            def get_industry_full_tree_path(node):
+                tokens = [node]
                 current_node = node
 
                 while current_node['parent'] is not None:
                     current_node = ind_tree[current_node['parent']]
-                    tokens.append(current_node['value'])
+                    tokens.append(current_node)
 
                 return tokens
 
-            ind_tree_tokens = get_all_tokens(ind_tree[node_key])
+            ind_tree_path_nodes = get_industry_full_tree_path(ind_tree[node_key])
 
-            def tokenize_industry(item):
-                ind_str = str(item)
-                ind_str = ind_str.replace('And ', '')
-                ind_str = ind_str.replace('and ', '')
-                ind_arr = re.split('; |, ', ind_str)
-                return list(map(str.strip, ind_arr))
-
-            for ind_tree_token in ind_tree_tokens:
-                if ind_tree_token not in sim_cache[course_keywords_str]:
-                    ind_tokens = tokenize_industry(ind_tree_token)
+            for ind_tree_node in ind_tree_path_nodes:
+                ind_str = ind_tree_node['value']
+                if ind_str not in sim_cache[course_keywords_str]:
+                    # Cosine distance of avg vectors of words in sentence
+                    ind_tokens = tokenize_generalized(ind_str)
+                    # ind_tokens = tokenize_industry_tree_item(ind_tree_token)
                     ind_avg_vec, ind_num_match = get_avg_vec(ind_tokens)
-
                     sim = 1 - spatial.distance.cosine(ind_avg_vec, course_vec_avg)
-                    sim_cache[course_keywords_str][ind_tree_token] = sim
+
+                    # Word Movers Distance
+                    # sim = 1 - model.wmdistance(course_keywords_str, ind_tree_token)
+
+                    sim_cache[course_keywords_str][ind_str] = sim
                 else:
-                    sim = sim_cache[course_keywords_str][ind_tree_token]
+                    sim = sim_cache[course_keywords_str][ind_str]
 
-                logging.debug(f'{sim}: {ind_tree_token}: {course_tokens}')
+                # logging.debug(f'{sim}: {ind_tree_token}: {course_keywords_str}')
                 if not math.isnan(sim) and sim > cutoff:
-                    if ind_tree_token not in matched_industries:
-                        matched_industries.append(ind_tree_token)
+                    if ind_tree_node['industry_cat'] not in matched_industries:
+                        matched_industries[ind_tree_node['industry_cat']] = []
 
+                    if ind_str not in matched_industries[ind_tree_node['industry_cat']]:
+                        matched_industries[ind_tree_node['industry_cat']].append(ind_str)
+
+            #
             # Old string matching method
+            #
             # for ind_term in ind_tokens:
             #     for course_token in course_tokens:
             #         if len(course_token) > 3 and course_token in ind_term:
             #             if ind_term not in matched_industries:
             #                 matched_industries.append(ind_term)
-            #             break
+                break
 
-        if len(matched_industries) > 0:
-            logging.info(f'{course_tokens}, {matched_industries}')
+        for ind_cat in matched_industries:
+            if len(matched_industries[ind_cat]) > 0:
+                logging.warning(f'{course_keywords_str}, {matched_industries[ind_cat]}')
 
-        body['INDUSTRY_MAP'] = matched_industries
+            body[f'INDUSTRY_MAP_{ind_cat}'] = matched_industries[ind_cat]
 
-        es.index(index='pf_idx', doc_type='courses_w_geo', id=idx, body=body)
+        es.index(index='pf_idx_ind_cat', doc_type='courses_w_geo', id=idx, body=body)
+        if not (idx % 1000):
+            pickle.dump(sim_cache, open("data/sim_cache.p", "wb"))
 
 
 upload_to_elastics(course_w_geo)

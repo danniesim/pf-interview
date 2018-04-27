@@ -17,7 +17,9 @@ class App extends Component {
         return (
             <section className="container">
                 <ReactiveBase
-                    app="pf_idx"
+                    app="pf_idx_ind_cat"
+                    // app="pf_idx_tok_both"
+                    // app="pf_idx"
                     type="courses_w_geo"
                     credentials="elastic:changeme"
                     url="http://localhost:9200"

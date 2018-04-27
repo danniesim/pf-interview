@@ -53,6 +53,7 @@ def generate_industries_tree():
     industries = pd.DataFrame(columns=['L1', 'L2', 'L3', 'L4'])
     ind_tree = {}
 
+    industry_cat = -1
     for idx, row in industries_csv.iterrows():
         str_l1 = str(row.L1)
         str_l2 = str(row.L2)
@@ -61,14 +62,15 @@ def generate_industries_tree():
 
         l1_sep = str_l1.find(':')
         if l1_sep != -1:
+            industry_cat = industry_cat + 1
             l1 = str_l1[l1_sep+1:].strip()
-            ind_tree[l1] = {'parent': None, 'value': l1, 'level': 1}
+            ind_tree[l1] = {'parent': None, 'value': l1, 'level': 1, 'industry_cat': chr(65 + industry_cat)}
             pass
 
         if str_l2 != 'nan':
             l2 = str_l2.strip()
             l2_key = ":".join([l1, l2])
-            ind_tree[l2_key] = {'parent': l1, 'value': l2, 'level': 2}
+            ind_tree[l2_key] = {'parent': l1, 'value': l2, 'level': 2, 'industry_cat': chr(65 + industry_cat)}
         else:
             if l2 is None:
                 l2 = ""
@@ -76,7 +78,7 @@ def generate_industries_tree():
         if str_l3 != 'nan':
             l3 = str_l3.strip()
             l3_key = ":".join([l1, l2, l3])
-            ind_tree[l3_key] = {'parent': l2_key, 'value': l3, 'level': 3}
+            ind_tree[l3_key] = {'parent': l2_key, 'value': l3, 'level': 3, 'industry_cat': chr(65 + industry_cat)}
         else:
             if l3 is None:
                 l3 = ""
@@ -84,13 +86,13 @@ def generate_industries_tree():
         if str_l4 != 'nan':
             l4 = str_l4.strip()
             l4_key = ":".join([l1, l2, l3, l4])
-            ind_tree[l4_key] = {'parent': l3_key, 'value': l4, 'level': 4}
+            ind_tree[l4_key] = {'parent': l3_key, 'value': l4, 'level': 4, 'industry_cat': chr(65 + industry_cat)}
         else:
             if l4 is None:
                 l4 = ""
 
         if l1 is not None:
-            industries.loc[industries.shape[0]+1] = [l1, l2, l3, l4]
+            # industries.loc[industries.shape[0]+1] = [l1, l2, l3, l4]
             l4 = None
 
     # industries.to_csv('data/industries.csv', index_label='idx', header=True)

@@ -1,6 +1,6 @@
 # Create index with required mappings
 
-PUT pf_idx
+PUT pf_idx_ind_cat
 {
   "mappings": {
     "courses_w_geo": {
@@ -21,7 +21,88 @@ PUT pf_idx
             }
           }
         },
-        "INDUSTRY_MAP": {
+        "INDUSTRY_MAP_A": {
+          "type": "text",
+          "fields": {
+            "raw": {
+              "type": "keyword"
+            }
+          },
+         "analyzer": "standard"
+        },
+        "INDUSTRY_MAP_B": {
+          "type": "text",
+          "fields": {
+            "raw": {
+              "type": "keyword"
+            }
+          },
+         "analyzer": "standard"
+        },
+        "INDUSTRY_MAP_C": {
+          "type": "text",
+          "fields": {
+            "raw": {
+              "type": "keyword"
+            }
+          },
+         "analyzer": "standard"
+        },
+        "INDUSTRY_MAP_D": {
+          "type": "text",
+          "fields": {
+            "raw": {
+              "type": "keyword"
+            }
+          },
+         "analyzer": "standard"
+        },
+        "INDUSTRY_MAP_E": {
+          "type": "text",
+          "fields": {
+            "raw": {
+              "type": "keyword"
+            }
+          },
+         "analyzer": "standard"
+        },
+        "INDUSTRY_MAP_F": {
+          "type": "text",
+          "fields": {
+            "raw": {
+              "type": "keyword"
+            }
+          },
+         "analyzer": "standard"
+        },
+        "INDUSTRY_MAP_G": {
+          "type": "text",
+          "fields": {
+            "raw": {
+              "type": "keyword"
+            }
+          },
+         "analyzer": "standard"
+        },
+        "INDUSTRY_MAP_H": {
+          "type": "text",
+          "fields": {
+            "raw": {
+              "type": "keyword"
+            }
+          },
+         "analyzer": "standard"
+        },
+        "INDUSTRY_MAP_I": {
+          "type": "text",
+          "fields": {
+            "raw": {
+              "type": "keyword"
+            }
+          },
+         "analyzer": "standard"
+        },
+        "INDUSTRY_MAP_J": {
           "type": "text",
           "fields": {
             "raw": {

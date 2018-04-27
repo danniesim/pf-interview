@@ -26,7 +26,7 @@ const Results = () => (
             onData={onData}
             onResultStats={onResultStats}
             react={{
-                and: ['search', 'industry', 'geography'],
+                and: ['search', 'geography', 'industry_a', 'industry_b', 'industry_c', 'industry_d', 'industry_e', 'industry_f', 'industry_g', 'industry_h', 'industry_i', 'industry_j'],
             }}
             pagination
             innerClass={{
