@@ -89,7 +89,9 @@ http.cors.allow-headers: "X-Requested-With, Content-Type, Content-Length, Author
 - Today, in attempts to improve the semantic matching further I've tried 2 more things: 1) Document Similarity With Word Movers Distance (http://jxieeducation.com/2016-06-13/Document-Similarity-With-Word-Movers-Distance/) and 2) A more generalized tokenization method.
 - Word Movers Distance did not seem to improve performance, it looks like its tokenization routines were not suited for the task. It also increased processing time of data to upload to Elastic Search from 2 hours to over 30 hours (estimated)
 - A more generalized tokenization method looks promising, though it increases the false positives, it also has the the effect of matching more relevant industries to courses. Data upload time was increased from 2 to around 10 hours
-
+  - Remove words 'a', 'for', 'the', 'and', 'or', 'of', 'nec', 's', 'other'
+  - Ignores non-words (e.g. Numbers and Punctuations)
+  - Truncated sentence after these phrases: 'except ', 'exc. ', 'other than ', 'not ', 'without ', 'no '
 
 ## Processing Optimizations
 - GoogleMaps API lookups are cached in a pickled dictionary for reuse

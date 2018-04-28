@@ -155,6 +155,7 @@ def upload_to_elastics(course_w_geo):
     punct_trans = {ord(c): ' ' for c in string.punctuation}
     course_remove_words = ['a', 'for', 'the']
     generalized_remove_words = ['', 'a', 'for', 'the', 'and', 'or', 'of', 'nec', 's', 'other']
+    generalized_truncation_phrases = ['except ', 'exc. ', 'other than ', 'not ', 'without ', 'no ']
 
     def tokenize_subject_phrase(course_str):
         word_tokens = word_tokenize(course_str)
@@ -171,12 +172,8 @@ def upload_to_elastics(course_w_geo):
 
     def tokenize_generalized(item):
         item_str = str(item).lower()
-        item_str = item_str.split("except ", 1)[0]
-        item_str = item_str.split("exc. ", 1)[0]
-        item_str = item_str.split("other than ", 1)[0]
-        item_str = item_str.split("not ", 1)[0]
-        item_str = item_str.split("without ", 1)[0]
-        item_str = item_str.split("no ", 1)[0]
+        for truncation_phrase in generalized_truncation_phrases:
+            item_str = item_str.split(truncation_phrase, 1)[0]
         word_list = re.split('[^a-z]', item_str)
         word_list = [word for word in word_list if word not in generalized_remove_words]
         return word_list
